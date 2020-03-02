@@ -67,6 +67,42 @@ class Logistic_Regression_Model(object) :
             #Updating the parameters
             self.update_parameters(derivatives, learning_rate)
 
+    def train_with_vectorized_gradient_descent(self, training_inputs, expected_outputs, epochs, learning_rate = 0.001, use_regularization=False, lmbda = 0) :
+        """Trains the model using gradient descent"""
+
+        #Converting the inputs to a matrix
+        X = self.get_input_matrix(training_inputs)
+
+        #Converting the expected outputs to a matrix
+        y = np.array(expected_outputs)
+        y.shape = (len(expected_outputs), 1)
+
+        #Training for the epochs
+        for epoch in range(0, epochs) :
+            derivatives = np.zeros(self.parameters.shape)
+            Z = np.dot(X, self.parameters)
+            H = self.sigmoid(Z)
+
+            #Calculating the gradients
+            E = H - y
+            derivatives = np.dot(X.T, E) / y.shape[0]
+
+            #Calculating the cost function value
+            J1 = np.concatenate((-y, -(1 - y)), axis=1)
+            J2 = np.concatenate((np.log(H), np.log(1 - H)), axis=1)
+            J = J1 * J2
+            self.cost_func_value = np.sum(J) / y.shape[0] 
+
+            #Checking if regularization is to be used
+            if(use_regularization) :
+                #Calculating the regularized cost function
+                self.cost_func_value += (lmbda / (2 * y.shape[0])) * (np.sum(y[1:-1]**2))
+                #Calculating the regularized gradients
+                derivatives[1:-1] += (lmbda / y.shapee[0]) * self.parameters[1:-1] 
+
+            #Updating the parameters
+            self.update_parameters(derivatives, learning_rate)
+
     def get_input_matrix(self, inputs) :
         """Converts the input list to a NumPy matrix containing the inputs as well as bias"""
 
