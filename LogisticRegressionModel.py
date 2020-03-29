@@ -19,59 +19,10 @@ class Logistic_Regression_Model(object) :
         #Initializing the model's attributes
         self.cost_func_value = 0.0 #The value of the cost function J(theta) for the last training epoch
 
-
     def train_with_gradient_descent(self, training_inputs, expected_outputs, epochs, learning_rate = 0.001, use_regularization=False, lmbda = 0) :
         """Trains the model using gradient descent"""
 
-        #Converting the inputs to a matrix
-        X = self.get_input_matrix(training_inputs)
-
-        #Converting the expected outputs to a matrix
-        y = np.array(expected_outputs)
-        y.shape = (1, len(expected_outputs))
-
-        #Training for the epochs
-        for epoch in range(0, epochs) :
-            derivatives = np.zeros(self.parameters.shape) #The derivatives for the parameters
-
-            #Iterating through the dataset
-            for inp in range(0, X.shape[0]) :
-                x = X[inp] #The input set
-                z = np.dot(self.parameters.T, x.T) #Calculating theta' * x'
-                h = self.sigmoid(z) #Getting sigmoid of z
-                error = h - y[0][inp] #Calculating the error in the model's prediction
-
-                #Updating the derivatives
-                for der in range(0,derivatives.shape[0]) :
-                    derivatives[der][0] += error[0] * x[der]
-
-                #Updating the cost function value
-                self.cost_func_value += -(y[0][inp] * log(h)) - ((1.0 - y[0][inp]) * log(1.0 - h))
-
-            #Calculating the final derivatives
-            derivatives = derivatives / X.shape[0]
-
-            #Calculating the final value of the cost function
-            self.cost_func_value /= X.shape[0]
-
-            #Checking if regularization is to be used
-            if(use_regularization) :
-                param_sq_sum = 0 #The sum of the parameters squared (required for calculating cost function)
-                for param in range(1, self.parameters.shape[0]) :
-                    derivatives[param][0] += lmbda * self.parameters[param][0] / X.shape[0]
-                    param_sq_sum += self.parameters[param][0] ** 2
-
-                #Calculating the final value of the cost function
-                self.cost_func_value += lmbda * param_sq_sum / (2 * X.shape[0])
-
-            #Updating the parameters
-            self.update_parameters(derivatives, learning_rate)
-
-    def train_with_vectorized_gradient_descent(self, training_inputs, expected_outputs, epochs, learning_rate = 0.001, use_regularization=False, lmbda = 0) :
-        """Trains the model using gradient descent"""
-
-        #Converting the inputs to a matrix
-        X = self.get_input_matrix(training_inputs)
+        X = np.concatenate((np.ones((len(training_inputs), 1)), training_inputs), axis=1) #Converting the training inputs to NumPy array
 
         #Converting the expected outputs to a matrix
         y = np.array(expected_outputs)
@@ -79,29 +30,54 @@ class Logistic_Regression_Model(object) :
 
         #Training for the epochs
         for epoch in range(0, epochs) :
-            derivatives = np.zeros(self.parameters.shape)
-            Z = np.dot(X, self.parameters)
-            H = self.sigmoid(Z)
+            #Forward Propogation
+            H, E, self.cost_func_value = self.forwardpropogate(X, y, self.parameters, lmbda)
 
-            #Calculating the gradients
-            E = H - y
-            derivatives = np.dot(X.T, E) / y.shape[0]
-
-            #Calculating the cost function value
-            J1 = np.concatenate((-y, -(1 - y)), axis=1)
-            J2 = np.concatenate((np.log(H), np.log(1 - H)), axis=1)
-            J = J1 * J2
-            self.cost_func_value = np.sum(J) / y.shape[0] 
-
-            #Checking if regularization is to be used
-            if(use_regularization) :
-                #Calculating the regularized cost function
-                self.cost_func_value += (lmbda / (2 * y.shape[0])) * (np.sum(y[1:-1]**2))
-                #Calculating the regularized gradients
-                derivatives[1:-1] += (lmbda / y.shapee[0]) * self.parameters[1:-1] 
+            #Getting the gradients
+            derivatives = self.get_gradients(self.parameters, X, y, E, lmbda)
 
             #Updating the parameters
             self.update_parameters(derivatives, learning_rate)
+
+    def forwardpropogate(self, X, y, parameters, lmbda) :
+        """Forward propogates and returns the outputs and cost function value for the given inputs.
+        X = inputs
+        y = expected outputs
+        parameters = parameters to be used
+        lmbda = Regularization Parameter
+        returns (Outputs, Errors, Cost)"""
+
+        #The model output using the given parameters
+        Z = np.dot(X, parameters)
+        H = self.sigmoid(Z)
+
+        #Calculating the cost function value
+        E = H - y
+        J1 = np.concatenate((-y, -(1 - y)), axis=1)
+        J2 = np.concatenate((np.log(H), np.log(1 - H)), axis=1)
+        j = np.sum(J1 * J2) / y.shape[0]
+        j += (lmbda / (2 * y.shape[0])) * (np.sum(y[1:-1]**2)) 
+
+        #Returning the outputs and cost
+        return (H, E, j)
+
+    def get_gradients(self, params, X, y, E, lmbda) :
+        """Calculates and returns the gradients for the parameters
+        params = the parameters whose gradients are required,
+        X = inputs,
+        y = expected outputs,
+        E = errors in the model's outputs i.e (h - y),
+        lmbda = Regularization Parameter
+        return grads = a Numpy array containing the calculated gradients"""
+
+        grads = np.zeros(params.shape) #The gradients
+
+        #Calculating the gradients
+        grads = np.dot(X.T, E) / y.shape[0]  
+        grads[1:] += params[1:] * (lmbda / y.shape[0])
+
+        #Returning the calculated gradients
+        return grads
 
     def get_input_matrix(self, inputs) :
         """Converts the input list to a NumPy matrix containing the inputs as well as bias"""
